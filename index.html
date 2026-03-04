@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Migraine Frequency Report</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #222632;
+    --border: #2a2e3d;
+    --text: #e4e6ed;
+    --text-dim: #8b8fa3;
+    --accent: #f97066;
+    --accent-light: #fca5a1;
+    --accent-dim: rgba(249, 112, 102, 0.15);
+    --green: #4ade80;
+    --green-dim: rgba(74, 222, 128, 0.15);
+    --yellow: #facc15;
+    --yellow-dim: rgba(250, 204, 21, 0.15);
+    --blue: #60a5fa;
+    --blue-dim: rgba(96, 165, 250, 0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    padding: 2rem;
+    min-height: 100vh;
+  }
+
+  .header {
+    max-width: 1200px;
+    margin: 0 auto 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.5rem;
+  }
+
+  .header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .header .subtitle {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-top: 0.25rem;
+  }
+
+  .header .patient-info {
+    text-align: right;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .kpi-row {
+    max-width: 1200px;
+    margin: 0 auto 2rem;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+
+  .kpi .label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin-bottom: 0.5rem;
+  }
+
+  .kpi .value {
+    font-size: 2rem;
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .kpi .detail {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-top: 0.25rem;
+  }
+
+  .kpi.danger .value { color: var(--accent); }
+  .kpi.success .value { color: var(--green); }
+  .kpi.info .value { color: var(--blue); }
+  .kpi.warn .value { color: var(--yellow); }
+
+  .grid {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+
+  .chart-card h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+
+  .chart-card .desc {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-bottom: 1.25rem;
+  }
+
+  .chart-wrap {
+    position: relative;
+    width: 100%;
+  }
+
+  .chart-wrap.tall { height: 320px; }
+  .chart-wrap.short { height: 220px; }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
+  }
+
+  .phase-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+  }
+
+  .phase-legend .item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+
+  .phase-legend .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+  }
+
+  .severity-bar {
+    display: flex;
+    height: 28px;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+  }
+
+  .severity-bar > div {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: 'DM Mono', monospace;
+    color: var(--bg);
+  }
+
+  .timeline-annotation {
+    font-size: 0.7rem;
+    font-family: 'DM Mono', monospace;
+    color: var(--text-dim);
+  }
+
+  @media (max-width: 900px) {
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .two-col { grid-template-columns: 1fr; }
+    body { padding: 1rem; }
+  }
+
+  @media print {
+    body { background: #fff; color: #1a1a2e; padding: 1rem; }
+    .chart-card { border: 1px solid #ddd; }
+    .kpi { border: 1px solid #ddd; }
+    .header { border-bottom: 1px solid #ddd; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Migraine Frequency Report</h1>
+    <div class="subtitle">Migrainedagboek — augustus 2023 t/m maart 2026</div>
+  </div>
+  <div class="patient-info">
+    Tracking period: 31 months<br>
+    Generated: Mar 2026
+  </div>
+</div>
+
+<div class="kpi-row">
+  <div class="kpi danger">
+    <div class="label">Total Episodes</div>
+    <div class="value">73</div>
+    <div class="detail">Aug 2023 – Mar 2026</div>
+  </div>
+  <div class="kpi success">
+    <div class="label">Emgality Effect</div>
+    <div class="value">2</div>
+    <div class="detail">episodes in 17 months on Emgality</div>
+  </div>
+  <div class="kpi warn">
+    <div class="label">Peak Frequency</div>
+    <div class="value">16</div>
+    <div class="detail">episodes in Dec 2023 – Jan 2024</div>
+  </div>
+  <div class="kpi info">
+    <div class="label">Detox (Feb '26)</div>
+    <div class="value">7</div>
+    <div class="detail">episodes in 4 weeks off Emgality</div>
+  </div>
+</div>
+
+<div class="grid">
+  <!-- Main timeline chart -->
+  <div class="chart-card">
+    <h2>Monthly Migraine Frequency by Treatment Phase</h2>
+    <div class="desc">Episodes per month with treatment periods highlighted — the key chart for your neurologist</div>
+    <div class="chart-wrap tall">
+      <canvas id="mainChart"></canvas>
+    </div>
+    <div class="phase-legend">
+      <div class="item"><div class="dot" style="background:#f97066"></div> Propranolol</div>
+      <div class="item"><div class="dot" style="background:#facc15"></div> Topamax</div>
+      <div class="item"><div class="dot" style="background:#fb923c"></div> Depakine</div>
+      <div class="item"><div class="dot" style="background:#a78bfa"></div> Depakine 2×</div>
+      <div class="item"><div class="dot" style="background:#4ade80"></div> Emgality</div>
+      <div class="item"><div class="dot" style="background:#60a5fa"></div> Detox Emgality</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <!-- Severity breakdown -->
+    <div class="chart-card">
+      <h2>Severity Distribution by Treatment Phase</h2>
+      <div class="desc">Proportion of licht / matig / ernstig episodes per phase</div>
+      <div class="chart-wrap tall">
+        <canvas id="severityChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Side stats -->
+    <div class="chart-card">
+      <h2>Attack Side Distribution</h2>
+      <div class="desc">Left vs right hemisphere across all episodes</div>
+      <div class="chart-wrap short">
+        <canvas id="sideChart"></canvas>
+      </div>
+      <div style="margin-top:1.5rem;">
+        <h2>Top Triggers</h2>
+        <div class="desc">Most frequently reported causes</div>
+        <div class="chart-wrap short">
+          <canvas id="triggerChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Treatment comparison summary -->
+  <div class="chart-card">
+    <h2>Treatment Comparison — Episodes per Month (Avg.)</h2>
+    <div class="desc">Average monthly frequency normalized for each treatment period</div>
+    <div class="chart-wrap" style="height: 200px;">
+      <canvas id="compChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── DATA ───
+const episodes = [
+  // Propranolol Aug-Sep 2023
+  {date:'2023-08-30',severity:'licht',side:'rechts',phase:'Propranolol'},
+  {date:'2023-09-04',severity:'matig',side:'links',phase:'Propranolol'},
+  {date:'2023-09-07',severity:'matig',side:'rechts',phase:'Propranolol'},
+  {date:'2023-09-10',severity:'licht',side:'rechts',phase:'Propranolol'},
+  {date:'2023-09-12',severity:'matig',side:'rechts',phase:'Propranolol'},
+  {date:'2023-09-13',severity:'ernstig',side:'rechts',phase:'Propranolol'},
+  {date:'2023-09-14',severity:'matig',side:'rechts',phase:'Propranolol'},
+  {date:'2023-09-15',severity:'matig',side:'rechts',phase:'Propranolol'},
+  {date:'2023-09-17',severity:'matig',side:'rechts',phase:'Propranolol'},
+  {date:'2023-09-21',severity:'ernstig',side:'rechts',phase:'Propranolol'},
+  {date:'2023-09-22',severity:'licht',side:'rechts',phase:'Propranolol'},
+  {date:'2023-09-25',severity:'matig',side:'rechts',phase:'Propranolol'},
+  // Propranolol Dec 2023 - Jan 2024
+  {date:'2023-12-21',severity:'matig',side:'rechts',phase:'Propranolol'},
+  {date:'2023-12-22',severity:'matig',side:'rechts',phase:'Propranolol'},
+  {date:'2023-12-24',severity:'matig',side:'rechts',phase:'Propranolol'},
+  {date:'2023-12-25',severity:'matig',side:'rechts',phase:'Propranolol'},
+  {date:'2023-12-26',severity:'matig',side:'rechts',phase:'Propranolol'},
+  {date:'2023-12-27',severity:'matig',side:'links',phase:'Propranolol'},
+  {date:'2023-12-30',severity:'matig',side:'rechts',phase:'Propranolol'},
+  {date:'2024-01-01',severity:'ernstig',side:'rechts',phase:'Propranolol'},
+  {date:'2024-01-02',severity:'licht',side:'rechts',phase:'Propranolol'},
+  {date:'2024-01-03',severity:'licht',side:'rechts',phase:'Propranolol'},
+  {date:'2024-01-05',severity:'matig',side:'rechts',phase:'Propranolol'},
+  {date:'2024-01-06',severity:'matig',side:'rechts',phase:'Propranolol'},
+  {date:'2024-01-10',severity:'matig',side:'rechts',phase:'Propranolol'},
+  {date:'2024-01-12',severity:'licht',side:'rechts',phase:'Propranolol'},
+  {date:'2024-01-14',severity:'ernstig',side:'rechts',phase:'Propranolol'},
+  {date:'2024-01-15',severity:'matig',side:'rechts',phase:'Propranolol'},
+  // Topamax
+  {date:'2024-01-18',severity:'matig',side:'rechts',phase:'Topamax'},
+  {date:'2024-01-20',severity:'licht',side:'rechts',phase:'Topamax'},
+  {date:'2024-01-23',severity:'matig',side:'rechts',phase:'Topamax'},
+  {date:'2024-01-24',severity:'matig',side:'rechts',phase:'Topamax'},
+  {date:'2024-02-01',severity:'matig',side:'rechts',phase:'Topamax'},
+  {date:'2024-02-08',severity:'matig',side:'rechts',phase:'Topamax'},
+  {date:'2024-02-16',severity:'ernstig',side:'rechts',phase:'Topamax'},
+  {date:'2024-02-20',severity:'matig',side:'rechts',phase:'Topamax'},
+  {date:'2024-02-22',severity:'matig',side:'links',phase:'Topamax'},
+  {date:'2024-02-27',severity:'matig',side:'links',phase:'Tomamax'},
+  // Depakine
+  {date:'2024-03-09',severity:'ernstig',side:'links',phase:'Depakine'},
+  {date:'2024-03-12',severity:'matig',side:'rechts',phase:'Depakine'},
+  {date:'2024-03-14',severity:'matig',side:'rechts',phase:'Depakine'},
+  {date:'2024-03-19',severity:'matig',side:'links',phase:'Depakine'},
+  {date:'2024-03-20',severity:'matig',side:'links',phase:'Depakine'},
+  {date:'2024-03-24',severity:'matig',side:'rechts',phase:'Depakine'},
+  {date:'2024-03-28',severity:'ernstig',side:'links',phase:'Depakine'},
+  // Depakine 2x
+  {date:'2024-04-03',severity:'licht',side:'links',phase:'Depakine 2×'},
+  {date:'2024-04-11',severity:'ernstig',side:'links',phase:'Depakine 2×'},
+  {date:'2024-04-12',severity:'ernstig',side:'links',phase:'Depakine 2×'},
+  {date:'2024-04-17',severity:'matig',side:'links',phase:'Depakine 2×'},
+  {date:'2024-04-30',severity:'matig',side:'links',phase:'Depakine 2×'},
+  {date:'2024-05-02',severity:'matig',side:'links',phase:'Depakine 2×'},
+  {date:'2024-05-04',severity:'licht',side:'links',phase:'Depakine 2×'},
+  {date:'2024-05-10',severity:'matig',side:'links',phase:'Depakine 2×'},
+  {date:'2024-05-14',severity:'matig',side:'rechts',phase:'Depakine 2×'},
+  {date:'2024-05-23',severity:'matig',side:'rechts',phase:'Depakine 2×'},
+  {date:'2024-06-01',severity:'matig',side:'links',phase:'Depakine 2×'},
+  {date:'2024-06-06',severity:'ernstig',side:'rechts',phase:'Depakine 2×'},
+  {date:'2024-06-13',severity:'matig',side:'rechts',phase:'Depakine 2×'},
+  {date:'2024-06-15',severity:'matig',side:'rechts',phase:'Depakine 2×'},
+  {date:'2024-06-19',severity:'ernstig',side:'links',phase:'Depakine 2×'},
+  {date:'2024-06-20',severity:'licht',side:'rechts',phase:'Depakine 2×'},
+  {date:'2024-07-03',severity:'matig',side:'links',phase:'Depakine 2×'},
+  {date:'2024-07-09',severity:'matig',side:'links',phase:'Depakine 2×'},
+  {date:'2024-07-14',severity:'ernstig',side:'links',phase:'Depakine 2×'},
+  // Emgality
+  {date:'2024-07-28',severity:'matig',side:'links',phase:'Emgality'},
+  {date:'2025-12-08',severity:'matig',side:'links',phase:'Emgality'},
+  // Detox Emgality
+  {date:'2026-02-13',severity:'matig',side:'links',phase:'Detox'},
+  {date:'2026-02-14',severity:'licht',side:'links',phase:'Detox'},
+  {date:'2026-02-23',severity:'matig',side:'links',phase:'Detox'},
+  {date:'2026-02-24',severity:'matig',side:'links',phase:'Detox'},
+  {date:'2026-02-25',severity:'matig',side:'links',phase:'Detox'},
+  {date:'2026-02-27',severity:'matig',side:'links',phase:'Detox'},
+  {date:'2026-03-03',severity:'ernstig',side:'links',phase:'Detox'},
+];
+
+// Triggers extracted from oorzaak column
+const triggers = [
+  {trigger:'Stress', count: 23},
+  {trigger:'Nekpijn', count: 18},
+  {trigger:'Slecht geslapen', count: 13},
+  {trigger:'Fysieke inspanning', count: 5},
+  {trigger:'Ziek/verkoudheid', count: 3},
+  {trigger:'Weer/zon/hitte', count: 3},
+];
+
+// ─── CHART DEFAULTS ───
+Chart.defaults.color = '#8b8fa3';
+Chart.defaults.borderColor = '#2a2e3d';
+Chart.defaults.font.family = "'DM Sans', sans-serif";
+Chart.defaults.font.size = 12;
+
+const phaseColors = {
+  'Propranolol': '#f97066',
+  'Topamax': '#facc15',
+  'Depakine': '#fb923c',
+  'Depakine 2×': '#a78bfa',
+  'Emgality': '#4ade80',
+  'Detox': '#60a5fa',
+};
+
+// ─── 1. MAIN MONTHLY CHART ───
+const months = [];
+const start = new Date(2023, 7); // Aug 2023
+const end = new Date(2026, 2);   // Mar 2026
+for (let d = new Date(start); d <= end; d.setMonth(d.getMonth() + 1)) {
+  months.push(d.toISOString().slice(0, 7));
+}
+
+const monthlyCounts = months.map(m => {
+  return episodes.filter(e => e.date.slice(0, 7) === m).length;
+});
+
+// Phase background ranges (month indices)
+const phaseRanges = [
+  { phase: 'Propranolol', start: 0, end: 1, color: 'rgba(249,112,102,0.08)' },   // Aug-Sep 2023
+  { phase: 'Propranolol', start: 4, end: 5, color: 'rgba(249,112,102,0.08)' },   // Dec 2023-Jan 2024
+  { phase: 'Topamax', start: 5, end: 7, color: 'rgba(250,204,21,0.08)' },        // Jan-Feb 2024
+  { phase: 'Depakine', start: 7, end: 8, color: 'rgba(251,146,60,0.08)' },       // Mar 2024
+  { phase: 'Depakine 2×', start: 8, end: 11, color: 'rgba(167,139,250,0.08)' },  // Apr-Jul 2024
+  { phase: 'Emgality', start: 11, end: 28, color: 'rgba(74,222,128,0.06)' },     // Jul 2024-Dec 2025
+  { phase: 'Detox', start: 30, end: 31, color: 'rgba(96,165,250,0.08)' },        // Feb-Mar 2026
+];
+
+// Determine phase color per month
+function getPhaseForMonth(monthIdx) {
+  for (const r of phaseRanges) {
+    if (monthIdx >= r.start && monthIdx <= r.end) return r.phase;
+  }
+  return null;
+}
+
+const barColors = months.map((_, i) => {
+  const phase = getPhaseForMonth(i);
+  if (phase && phaseColors[phase]) return phaseColors[phase];
+  return '#3a3f52';
+});
+
+const barBorderColors = barColors.map(c => c === '#3a3f52' ? '#3a3f52' : c);
+
+const monthLabels = months.map(m => {
+  const [y, mo] = m.split('-');
+  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return names[parseInt(mo)-1] + ' ' + y.slice(2);
+});
+
+const mainCtx = document.getElementById('mainChart').getContext('2d');
+
+// Custom plugin to draw phase background bands
+const phaseBandPlugin = {
+  id: 'phaseBands',
+  beforeDraw(chart) {
+    const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
+    phaseRanges.forEach(r => {
+      const x1 = x.getPixelForValue(r.start) - (x.getPixelForValue(1) - x.getPixelForValue(0)) / 2;
+      const x2 = x.getPixelForValue(r.end) + (x.getPixelForValue(1) - x.getPixelForValue(0)) / 2;
+      ctx.fillStyle = r.color;
+      ctx.fillRect(x1, top, x2 - x1, bottom - top);
+    });
+  }
+};
+
+new Chart(mainCtx, {
+  type: 'bar',
+  plugins: [phaseBandPlugin],
+  data: {
+    labels: monthLabels,
+    datasets: [{
+      data: monthlyCounts,
+      backgroundColor: barColors,
+      borderColor: barBorderColors,
+      borderWidth: 1,
+      borderRadius: 4,
+      maxBarThickness: 28,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: ctx => `${ctx.parsed.y} episode${ctx.parsed.y !== 1 ? 's' : ''}`
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { maxRotation: 45, font: { size: 10 } }
+      },
+      y: {
+        beginAtZero: true,
+        max: 12,
+        ticks: { stepSize: 2 },
+        title: { display: true, text: 'Episodes', font: { size: 11, weight: '500' } }
+      }
+    }
+  }
+});
+
+// ─── 2. SEVERITY STACKED BAR ───
+const phaseNames = ['Propranolol','Topamax','Depakine','Depakine 2×','Emgality','Detox'];
+const severityLevels = ['licht','matig','ernstig'];
+const sevColors = { licht: '#4ade80', matig: '#facc15', ernstig: '#f97066' };
+
+const sevData = phaseNames.map(p => {
+  const phaseEps = episodes.filter(e => {
+    if (p === 'Tomamax') return false; // fix typo
+    return e.phase === p || (p === 'Topamax' && e.phase === 'Tomamax');
+  });
+  return {
+    licht: phaseEps.filter(e => e.severity === 'licht').length,
+    matig: phaseEps.filter(e => e.severity === 'matig').length,
+    ernstig: phaseEps.filter(e => e.severity === 'ernstig').length,
+  };
+});
+
+const sevCtx = document.getElementById('severityChart').getContext('2d');
+new Chart(sevCtx, {
+  type: 'bar',
+  data: {
+    labels: phaseNames,
+    datasets: severityLevels.map(s => ({
+      label: s.charAt(0).toUpperCase() + s.slice(1),
+      data: sevData.map(d => d[s]),
+      backgroundColor: sevColors[s],
+      borderRadius: 3,
+    }))
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { usePointStyle: true, pointStyle: 'rectRounded', padding: 16, font: { size: 11 } }
+      }
+    },
+    scales: {
+      x: {
+        stacked: true,
+        grid: { display: false },
+        ticks: { font: { size: 10 } }
+      },
+      y: {
+        stacked: true,
+        beginAtZero: true,
+        ticks: { stepSize: 5 },
+        title: { display: true, text: 'Episodes', font: { size: 11, weight: '500' } }
+      }
+    }
+  }
+});
+
+// ─── 3. SIDE DOUGHNUT ───
+const rechtsCount = episodes.filter(e => e.side === 'rechts').length;
+const linksCount = episodes.filter(e => e.side === 'links').length;
+
+const sideCtx = document.getElementById('sideChart').getContext('2d');
+new Chart(sideCtx, {
+  type: 'doughnut',
+  data: {
+    labels: ['Rechts (right)', 'Links (left)'],
+    datasets: [{
+      data: [rechtsCount, linksCount],
+      backgroundColor: ['#f97066', '#60a5fa'],
+      borderColor: 'transparent',
+      borderWidth: 0,
+      spacing: 3,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '62%',
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { usePointStyle: true, pointStyle: 'circle', padding: 12, font: { size: 11 } }
+      }
+    }
+  }
+});
+
+// ─── 4. TRIGGERS HORIZONTAL BAR ───
+const trigCtx = document.getElementById('triggerChart').getContext('2d');
+new Chart(trigCtx, {
+  type: 'bar',
+  data: {
+    labels: triggers.map(t => t.trigger),
+    datasets: [{
+      data: triggers.map(t => t.count),
+      backgroundColor: '#a78bfa',
+      borderRadius: 4,
+      maxBarThickness: 18,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { beginAtZero: true, grid: { display: false }, ticks: { stepSize: 5 } },
+      y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+    }
+  }
+});
+
+// ─── 5. TREATMENT COMPARISON ───
+// Avg episodes/month for each phase
+const phaseAvg = [
+  { name: 'Propranolol', avg: 28 / 4 },           // 28 eps over ~4 months tracked
+  { name: 'Topamax', avg: 10 / 1.5 },             // 10 eps over ~1.5 months
+  { name: 'Depakine', avg: 7 / 1 },               // 7 eps in 1 month
+  { name: 'Depakine 2×', avg: 19 / 3.5 },         // 19 eps over 3.5 months
+  { name: 'Emgality', avg: 2 / 17 },              // 2 eps over 17 months
+  { name: 'Detox (1mo)', avg: 7 / 1 },            // 7 eps in ~1 month
+];
+
+const compCtx = document.getElementById('compChart').getContext('2d');
+new Chart(compCtx, {
+  type: 'bar',
+  data: {
+    labels: phaseAvg.map(p => p.name),
+    datasets: [{
+      data: phaseAvg.map(p => Math.round(p.avg * 10) / 10),
+      backgroundColor: phaseAvg.map(p => phaseColors[p.name] || phaseColors['Detox']),
+      borderRadius: 6,
+      maxBarThickness: 60,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: ctx => `${ctx.parsed.y} episodes/month avg`
+        }
+      }
+    },
+    scales: {
+      x: { grid: { display: false } },
+      y: {
+        beginAtZero: true,
+        title: { display: true, text: 'Avg episodes / month', font: { size: 11, weight: '500' } }
+      }
+    }
+  }
+});
+</script>
+</body>
+</html>
